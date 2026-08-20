@@ -28,34 +28,78 @@ workflows:
           fi
           cp firebase/google-services.json android/app/google-services.json
 
-          # --- Patch android/build.gradle(.kts): tambahkan classpath Google Services plugin ---
-          if [ -f "android/build.gradle.kts" ]; then
-            GFILE="android/build.gradle.kts"
-            grep -q "com.google.gms:google-services" "$GFILE" || \
-              sed -i 's/dependencies {/dependencies {\n        classpath("com.google.gms:google-services:4.4.2")/' "$GFILE"
-          elif [ -f "android/build.gradle" ]; then
-            GFILE="android/build.gradle"
-            grep -q "com.google.gms:google-services" "$GFILE" || \
-              sed -i "s/dependencies {/dependencies {\n        classpath 'com.google.gms:google-services:4.4.2'/" "$GFILE"
-          fi
+          # Patch file-file Gradle & Manifest pakai Python -- supaya perilakunya
+          # SAMA PERSIS baik di mesin build Linux maupun macOS (sed versi BSD di
+          # macOS beda sintaks dari GNU sed di Linux dan sering bikin build gagal).
+          python3 << 'PYEOF'
+          import re, os
 
-          # --- Patch android/app/build.gradle(.kts): apply plugin Google Services ---
-          if [ -f "android/app/build.gradle.kts" ]; then
-            AFILE="android/app/build.gradle.kts"
-            grep -q "com.google.gms.google-services" "$AFILE" || \
-              sed -i '0,/^plugins {/s//plugins {\n    id("com.google.gms.google-services")/' "$AFILE"
-          elif [ -f "android/app/build.gradle" ]; then
-            AFILE="android/app/build.gradle"
-            grep -q "com.google.gms.google-services" "$AFILE" || \
-              echo "apply plugin: 'com.google.gms.google-services'" >> "$AFILE"
-          fi
+          def patch(path, pattern, replacement, marker, flags=0):
+              if not os.path.isfile(path):
+                  return
+              with open(path, "r") as f:
+                  content = f.read()
+              if marker in content:
+                  print(f"skip (sudah ada): {path}")
+                  return
+              new_content, n = re.subn(pattern, replacement, content, count=1, flags=flags)
+              if n == 0:
+                  print(f"!!! pola tidak ketemu di {path}, skip patch ini.")
+                  return
+              with open(path, "w") as f:
+                  f.write(new_content)
+              print(f"patched: {path}")
 
-          # --- Izin QUERY_ALL_PACKAGES (fitur daftar aplikasi terinstall) ---
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          if [ -f "$MANIFEST" ] && ! grep -q "QUERY_ALL_PACKAGES" "$MANIFEST"; then
-            sed -i 's#<manifest #<manifest xmlns:tools="http://schemas.android.com/tools" #' "$MANIFEST"
-            sed -i '0,/<application/s##<uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission"/>\n\n    <application#' "$MANIFEST"
-          fi
+          # --- android/build.gradle(.kts): classpath Google Services plugin ---
+          patch(
+              "android/build.gradle.kts",
+              r"dependencies\s*\{",
+              'dependencies {\n        classpath("com.google.gms:google-services:4.4.2")',
+              "com.google.gms:google-services",
+          )
+          patch(
+              "android/build.gradle",
+              r"dependencies\s*\{",
+              "dependencies {\n        classpath 'com.google.gms:google-services:4.4.2'",
+              "com.google.gms:google-services",
+          )
+
+          # --- android/app/build.gradle(.kts): apply plugin Google Services ---
+          patch(
+              "android/app/build.gradle.kts",
+              r"plugins\s*\{",
+              'plugins {\n    id("com.google.gms.google-services")',
+              "com.google.gms.google-services",
+          )
+          patch(
+              "android/app/build.gradle",
+              r"plugins\s*\{",
+              "plugins {\n    id 'com.google.gms.google-services'",
+              "com.google.gms.google-services",
+          )
+
+          # --- AndroidManifest.xml: izin QUERY_ALL_PACKAGES (daftar app terinstall) ---
+          manifest = "android/app/src/main/AndroidManifest.xml"
+          if os.path.isfile(manifest):
+              with open(manifest, "r") as f:
+                  content = f.read()
+              if "QUERY_ALL_PACKAGES" not in content:
+                  if 'xmlns:tools=' not in content:
+                      content = content.replace(
+                          "<manifest ", '<manifest xmlns:tools="http://schemas.android.com/tools" ', 1
+                      )
+                  content = content.replace(
+                      "<application",
+                      '<uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" '
+                      'tools:ignore="QueryAllPackagesPermission"/>\n\n    <application',
+                      1,
+                  )
+                  with open(manifest, "w") as f:
+                      f.write(content)
+                  print(f"patched: {manifest}")
+              else:
+                  print(f"skip (sudah ada): {manifest}")
+          PYEOF
       - name: Ambil dependency Flutter
         script: flutter pub get
       - name: Build APK

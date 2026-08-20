@@ -50,18 +50,23 @@ workflows:
                   f.write(new_content)
               print(f"patched: {path}")
 
-          # --- android/build.gradle(.kts): classpath Google Services plugin ---
+          # --- android/settings.gradle.kts: daftarkan versi plugin Google Services ---
+          # Template Flutter modern tidak lagi pakai buildscript/classpath di
+          # android/build.gradle.kts -- resolusi plugin dilakukan lewat blok
+          # `plugins {}` di settings.gradle.kts. Kalau versi plugin tidak
+          # didaftarkan di sana, `id("com.google.gms.google-services")` di
+          # app/build.gradle.kts tidak akan ketemu sumbernya (persis error di atas).
           patch(
-              "android/build.gradle.kts",
-              r"dependencies\s*\{",
-              'dependencies {\n        classpath("com.google.gms:google-services:4.4.2")',
-              "com.google.gms:google-services",
+              "android/settings.gradle.kts",
+              r'id\("org\.jetbrains\.kotlin\.android"\) version "[^"]+" apply false',
+              lambda m: m.group(0) + '\n    id("com.google.gms.google-services") version "4.4.2" apply false',
+              "com.google.gms.google-services",
           )
           patch(
-              "android/build.gradle",
-              r"dependencies\s*\{",
-              "dependencies {\n        classpath 'com.google.gms:google-services:4.4.2'",
-              "com.google.gms:google-services",
+              "android/settings.gradle",
+              r"id\s+'org\.jetbrains\.kotlin\.android'\s+version\s+'[^']+'\s+apply\s+false",
+              lambda m: m.group(0) + "\n    id 'com.google.gms.google-services' version '4.4.2' apply false",
+              "com.google.gms.google-services",
           )
 
           # --- android/app/build.gradle(.kts): apply plugin Google Services ---

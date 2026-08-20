@@ -1,0 +1,57 @@
+rules_version = '2';
+
+// =====================================================================
+// ATURAN INI WAJIB DI-DEPLOY ke Firebase Console (Firestore > Rules)
+// atau lewat `firebase deploy --only firestore:rules`.
+// Tanpa file ini ter-deploy, SIAPA SAJA yang tahu konfigurasi Firebase
+// project kamu (yang otomatis ada di dalam APK) bisa baca/tulis semua
+// data lewat Firestore SDK langsung, TANPA lewat aplikasi ini sama
+// sekali. Ini lapisan keamanan yang sesungguhnya -- kode Dart di app
+// cuma UI, bukan penjaga akses.
+//
+// UID akun developer (admin12@developer.coolerapp.local) sudah
+// ditempel langsung di bawah supaya kamu tidak perlu bikin dokumen
+// Firestore manual. Kalau nanti mau tambah developer lain, tinggal
+// tambah dokumen di koleksi `admins/{uid_baru}` lewat Console -- fungsi
+// isAdmin() di bawah otomatis menerima keduanya (hardcode ATAU koleksi).
+// =====================================================================
+
+function isAdmin() {
+  return request.auth != null && (
+    request.auth.uid == 'ljp6iPTaxnSvyJLkSGdw5oCMOi53' ||
+    exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+  );
+}
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Akun pengguna (hanya passHash, bukan password asli).
+    // - App boleh MENULIS (upsert) akun miliknya sendiri saat login/daftar.
+    // - Hanya admin yang boleh MEMBACA daftar akun / menghapus akun.
+    match /users/{username} {
+      allow create, update: if request.resource.data.username == username;
+      allow read, delete: if isAdmin();
+    }
+
+    // Status online/offline tiap cooler.
+    match /coolers/{username} {
+      allow create, update: if true; // heartbeat dikirim dari app pemilik cooler
+      allow read, delete: if isAdmin();
+    }
+
+    // Registrasi "HP pernah buka app ini" untuk hitung jumlah install.
+    match /devices/{deviceId} {
+      allow create, update: if true;
+      allow read: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Daftar UID developer. Hanya bisa diedit manual lewat Firebase
+    // Console (tidak ada jalur di app untuk menulis koleksi ini).
+    match /admins/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+  }
+}

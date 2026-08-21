@@ -495,4 +495,3 @@ class _RegisterTabState extends State<_RegisterTab> {
     );
   }
 }
-

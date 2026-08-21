@@ -353,4 +353,3 @@ class _HudLinesPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _HudLinesPainter oldDelegate) => oldDelegate.t != t;
 }
-

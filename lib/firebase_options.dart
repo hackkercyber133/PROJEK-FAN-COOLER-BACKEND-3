@@ -33,4 +33,3 @@ class DefaultFirebaseOptions {
     storageBucket: 'fan-cooler-app.firebasestorage.app',
   );
 }
-

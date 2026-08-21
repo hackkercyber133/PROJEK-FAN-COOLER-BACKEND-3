@@ -400,6 +400,17 @@ class _ControllerPageState extends State<ControllerPage> {
             icon: Icon(Icons.settings_ethernet, color: Colors.cyanAccent),
             onPressed: showWiFiSetupDialog,
           ),
+          // Status
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            margin: EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              border: Border.all(color: status == "🟢 Online" ? Colors.green.shade800 : Colors.red.shade800),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(status,
+                style: TextStyle(fontSize: 12, color: status == "🟢 Online" ? Colors.greenAccent : Colors.redAccent)),
+          ),
           // Logout / ganti akun
           IconButton(
             icon: Icon(Icons.logout, color: Colors.white54),
@@ -412,20 +423,6 @@ class _ControllerPageState extends State<ControllerPage> {
         padding: EdgeInsets.all(20),
         child: Column(
           children: [
-            // Status
-            Align(
-              alignment: Alignment.centerRight,
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                margin: EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: status == "🟢 Online" ? Colors.green.shade800 : Colors.red.shade800),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(status,
-                    style: TextStyle(fontSize: 12, color: status == "🟢 Online" ? Colors.greenAccent : Colors.redAccent)),
-              ),
-            ),
             // Timer
             Container(
               padding: EdgeInsets.all(12),
